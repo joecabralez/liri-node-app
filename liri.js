@@ -1,101 +1,83 @@
-//twitter npm & keys & request
+//node requires
 var Twitter = require('twitter');
-var daKeys = require("./keys.js");
-var request = require("request");
-
-/////////////
-//~TWITTER~//
-///////////// 
-var client = new Twitter({
-  consumer_key: daKeys.twitterKeys.consumer_key,
-  consumer_secret: daKeys.twitterKeys.consumer_secret,
-  access_token_key: daKeys.twitterKeys.access_token_key,
-  access_token_secret: daKeys.twitterKeys.access_token_secret
-});
- 
-var params = {screen_name: 'joecabralez'};
-client.get('statuses/user_timeline', params, function(error, tweets, response) {
-  if (!error) {
-    console.log(tweets);
-
-}
-});
-
-
-////////////////////
-//OMDB MOVIE STUFF//
-////////////////////
-
-// Store all of the arguments in an array
-var nodeArgs = process.argv;
-
-// Create an empty variable for holding the movie name
-var movieName = "";
-
-// Loop through all the words in the node argument
-// And do a little for-loop magic to handle the inclusion of "+"s
-for (var i = 3; i < nodeArgs.length; i++) {
-
-  if (i > 3 && i < nodeArgs.length) {
-
-    movieName = movieName + "+" + nodeArgs[i];
-
-  }
-
-  else {
-
-    movieName += nodeArgs[i];
-
-  }
-}
-
-// Then run a request to the OMDB API with the movie specified
-var queryUrl = "http://www.omdbapi.com/?t=" + movieName + "&y=&plot=short&r=json";
-
-//request for movie url
-
-request(queryUrl, function(error, response, body) {
-
-  // If the request is successful
-  if (!error && response.statusCode === 200) {
-
-    // Parse the body of the site and recover just the imdbRating
-    // (Note: The syntax below for parsing isn't obvious. Just spend a few moments dissecting it).
-    console.log("Title: " + JSON.parse(body).Title + "\nYear: " + JSON.parse(body).Year + "\nIMDB Rating: " + JSON.parse(body).imdbRating + "\nCountry Produced: " + JSON.parse(body).Country + "\nLanguage: " + JSON.parse(body).Language + "\nPlot: " + JSON.parse(body).Plot + "\nActors: " + JSON.parse(body).Actors + "\nRotten Tomatoes URL: " + JSON.parse(body).Website);
-  }
-});
-
-/////////////
-//~SPOTIFY~//
-/////////////
-
-var spotify = require('spotify');
-
-var songArg = process.argv;
-var songTitle = "";
- 
-spotify.search({ type: 'track', query: 'dancing in the moonlight' }, function(err, data) {
-    if ( err ) {
-        console.log('Error occurred: ' + err);
-        return;
-    }
- 
-    // Do something with 'data' 
-});
-
-////////////////////
-//~READ TEXT FILE~//
-////////////////////
-
-// fs is an NPM package for reading and writing files
+var twitterKey = require('./keys.js');
+var Spotify = require('spotify');
+var Request = require('request');
 var fs = require("fs");
+//user commands and input
+var command = process.argv[2];
+var input = '';
+for (var i = 3; i < process.argv.length; i++) {
+	input = input + process.argv[i] + ' ';
+}
+input = input.trim();
+console.log('');
+mainCommand(command, input);
 
-// This block of code will read from the "movies.txt" file.
-// It's important to include the "utf8" parameter or the code will provide stream data (garbage)
-// The code will store the contents of the reading inside the variable "data"
-fs.readFile("random.txt", "utf8", function(error, data) {
-
-  // We will then print the contents of data
-  console.log(data);
-
-});
+function mainCommand(command, input) {
+	///////////
+	//TWITTER//
+	///////////
+	if (command === 'my-tweets') {
+		var client = new Twitter(twitterKey.twitterKeys);
+		var handle = 'joecabralez';
+		var params = {
+			screen_name: handle
+		};
+		client.get('statuses/user_timeline', params, function(error, tweets, response) {
+			console.log('@' + handle + " Tweets: ");
+			if (!error) {
+				for (var i = 0; i < 20; i++) {
+					console.log(tweets[i].created_at);
+					console.log((i + 1) + ": " + tweets[i].text);
+					console.log('');
+				}
+			} else {
+				console.log('Error occured: ' + error)
+			}
+		});
+	}
+	///////////
+	//SPOTIFY//
+	///////////
+	if (command === 'spotify-this-song') {
+		if (input === '') {
+			input = ' "The Sign" Ace of Base';
+		}
+		Spotify.search({
+			type: 'track',
+			query: input
+		}, function(error, data) {
+			var songData = data.tracks.items[0];
+			if (error) {
+				console.log('Error occurred: ' + error);
+				return;
+			}
+			console.log("Artist: " + songData.artists[0].name + "\nSong: " + songData.name + "\nLink: " + songData.external_urls.spotify + "\nAlbum: " + songData.album.name);
+		});
+	}
+	/////////////
+	//OMDB INFO//
+	/////////////
+	if (command === 'movie-this') {
+		if (input === '') {
+			input = 'mr_nobody';
+		}
+		Request('http://www.omdbapi.com/?t=' + input, function(error, response, body) {
+			var movieData = JSON.parse(body);
+			//PRINT MOVIE DATA
+			console.log("Title: " + JSON.parse(body).Title + "\nYear: " + JSON.parse(body).Year + "\nIMDB Rating: " + JSON.parse(body).imdbRating + "\nCountry Produced: " + JSON.parse(body).Country + "\nLanguage: " + JSON.parse(body).Language + "\nPlot: " + JSON.parse(body).Plot + "\nActors: " + JSON.parse(body).Actors);
+		});
+	};
+	//////////////////
+	//READ TEXT FILE//
+	//////////////////
+	if (command === 'do-what-it-says') {
+		fs.readFile("random.txt", "utf8", function(error, data) {
+			var dataArr = data.split(",");
+			command = dataArr[0];
+			input = dataArr[1].replace(/"/g, '');
+			mainCommand(command, input);
+		});
+	}
+}
